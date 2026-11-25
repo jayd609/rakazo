@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supportsComposerHardwareEnter } from "../../components/composer/composer-keyboard";
 import { NativeSegmentedControl } from "../../components/native/native-segmented-control";
 import {
+  SettingsFooter,
   SettingsGroup,
   SettingsLabel,
   SettingsRow,
@@ -91,6 +92,24 @@ export default function General() {
     stale: [meRead.queryKey],
     onFailed: () => Alert.alert(t`Couldn't update bot style`),
   });
+  const crossSpaceSave = useSave({
+    target: ACCOUNT_SETTINGS,
+    save: async (value: "default" | "enabled" | "disabled", send) => {
+      const defaultCrossSpaceCommunication = value === "default" ? null : value === "enabled";
+      queryClient.setQueryData(
+        meRead.queryKey,
+        await send("preferences/update", { defaultCrossSpaceCommunication }),
+      );
+    },
+    stale: [meRead.queryKey],
+    onFailed: () => Alert.alert(t`Could not save`),
+  });
+  const crossSpaceValue =
+    me?.defaultCrossSpaceCommunication == null
+      ? "default"
+      : me.defaultCrossSpaceCommunication
+        ? "enabled"
+        : "disabled";
   const chatSave = useSave({
     target: ACCOUNT_SETTINGS,
     save: async (chatPreferences: AccountChatPreferencesPatch, send) => {
@@ -267,6 +286,28 @@ export default function General() {
               ]}
               value={(botStyle.pending ? botStyle.input : me.botAvatarSet) ?? ""}
             />
+          </View>
+        ) : null}
+
+        {me?.defaultCrossSpaceCommunication !== undefined ? (
+          <View style={styles.section}>
+            <SettingsLabel>{t`Cross-space communication for new bots`}</SettingsLabel>
+            <NativeSegmentedControl
+              accessibilityLabel={t`Cross-space communication for new bots`}
+              disabled={crossSpaceSave.pending}
+              onChange={(value) => crossSpaceSave.run(value)}
+              options={[
+                { value: "default", label: t`Default` },
+                { value: "enabled", label: t`Enabled` },
+                { value: "disabled", label: t`Disabled` },
+              ]}
+              value={
+                crossSpaceSave.pending ? (crossSpaceSave.input ?? crossSpaceValue) : crossSpaceValue
+              }
+            />
+            <SettingsFooter>
+              {t`Default follows the deployment setting. Changes apply only to new bots communicating across Spaces through connected messaging apps.`}
+            </SettingsFooter>
           </View>
         ) : null}
 

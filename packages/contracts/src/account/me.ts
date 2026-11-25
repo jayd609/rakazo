@@ -50,6 +50,8 @@ export const MeSchema = z.object({
   avatarStyle: AvatarStyleSchema,
   /** The icon set new and unpinned bots wear. Absent from servers that predate it. */
   botAvatarSet: BotAvatarSetSchema.optional(),
+  /** Null uses the deployment default. Absent from older servers. */
+  defaultCrossSpaceCommunication: z.boolean().nullable().optional(),
   /** Absent from servers that predate account-level chat preferences. */
   chatPreferences: AccountChatPreferencesSchema.optional(),
   /**

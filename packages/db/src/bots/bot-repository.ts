@@ -41,6 +41,7 @@ import {
 import { readStateFor, snoozedUntilFor, unreadFor } from "../threads/thread-reads.js";
 import { chooseBotAvatar } from "./bot-avatar-choice.js";
 import { botThreadPreviews } from "./bot-previews.js";
+import { resolveDefaultCrossSpaceCommunication } from "./cross-space-default.js";
 
 function isBotCreateConflict(error: unknown, clientId?: string): boolean {
   if (!isUniqueViolation(error)) return false;
@@ -526,8 +527,11 @@ export function createRepos(
           });
           // A bot follows its owner's default set unless created with another, which pins it.
           // Held until this bot commits, so a concurrent default change restyles it afterwards.
-          const [owner] = await tx.$queryRaw<{ botAvatarSet: string }[]>`
-            SELECT "botAvatarSet" FROM "user" WHERE id = ${actor.userId} FOR SHARE`;
+          const [owner] = await tx.$queryRaw<
+            { botAvatarSet: string; defaultCrossSpaceCommunication: boolean | null }[]
+          >`
+            SELECT "botAvatarSet", "defaultCrossSpaceCommunication"
+            FROM "user" WHERE id = ${actor.userId} FOR SHARE`;
           const defaultSet = owner
             ? resolveBotAvatarSet(owner.botAvatarSet)
             : DEFAULT_NEW_BOT_AVATAR_SET;
@@ -575,6 +579,9 @@ export function createRepos(
               color: avatar.color,
               avatarSet,
               avatarSetPinned: input.avatarSetPinned ?? avatarSet !== defaultSet,
+              crossSpaceCommunication: resolveDefaultCrossSpaceCommunication(
+                owner?.defaultCrossSpaceCommunication,
+              ),
               position: (positions._max.position ?? -1) + 1,
               parentBotId: input.parentBotId ?? null,
               computerId: computer.id,

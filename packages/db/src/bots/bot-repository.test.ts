@@ -643,11 +643,15 @@ it("finds incoming calls independently of the sidebar message window", async () 
 });
 
 describe("createRepos.createBot computer", () => {
-  function createFakePrisma() {
+  function createFakePrisma(preference: boolean | null = null) {
     const upserts: string[] = [];
     let computer = { id: "", scope: "team" };
     const tx = {
-      $queryRaw: vi.fn(async () => []),
+      $queryRaw: vi.fn(async (query: unknown) =>
+        Array.isArray(query) && query.join("").includes('"defaultCrossSpaceCommunication"')
+          ? [{ botAvatarSet: "organic", defaultCrossSpaceCommunication: preference }]
+          : [],
+      ),
       spaceMember: {
         findUnique: vi.fn(async () => ({ organizationId: "org-1", space: { deletingAt: null } })),
         findFirst: vi.fn(async () => ({ userId: "owner-1" })),
@@ -677,7 +681,7 @@ describe("createRepos.createBot computer", () => {
       deploymentSettings: { findUnique: vi.fn(async () => null) },
       $transaction: vi.fn(async (run: (client: typeof tx) => Promise<unknown>) => run(tx)),
     };
-    return { prisma: prisma as unknown as PrismaClient, upserts };
+    return { prisma: prisma as unknown as PrismaClient, upserts, createBot: tx.bot.create };
   }
 
   const input = { name: "Helper", description: "", instructions: "", notifyOnFinish: true };
@@ -709,6 +713,43 @@ describe("createRepos.createBot computer", () => {
   it("lets an explicit mode win over the default", async () => {
     expect((await create("dedicated", "team")).bot.computerMode).toBe("team");
     expect((await create(undefined, "dedicated")).bot.computerMode).toBe("dedicated");
+  });
+
+  it.each([
+    [undefined, null, true],
+    ["true", null, true],
+    ["false", null, false],
+    [undefined, false, false],
+    [undefined, true, true],
+    ["true", false, false],
+    ["false", true, true],
+  ] as const)(
+    "uses cross-space deployment default %s and account preference %s to create a bot with %s",
+    async (env, preference, expected) => {
+      vi.stubEnv("RAKAZO_CROSS_SPACE_COMMUNICATION_DEFAULT", env);
+      try {
+        const { prisma, createBot } = createFakePrisma(preference);
+        await createRepos(prisma).createBot(actor, input);
+        expect(createBot).toHaveBeenCalledWith({
+          data: expect.objectContaining({ crossSpaceCommunication: expected }),
+        });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
+  it("rejects an invalid cross-space deployment default", async () => {
+    vi.stubEnv("RAKAZO_CROSS_SPACE_COMMUNICATION_DEFAULT", "invalid");
+    try {
+      const { prisma, createBot } = createFakePrisma();
+      await expect(createRepos(prisma).createBot(actor, input)).rejects.toThrow(
+        "RAKAZO_CROSS_SPACE_COMMUNICATION_DEFAULT",
+      );
+      expect(createBot).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("rejects an unknown default", async () => {

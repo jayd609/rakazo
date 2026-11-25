@@ -46,6 +46,7 @@ model User {
   updatedAt                   DateTime                     @updatedAt
   avatarStyle                 String                       @default("organic")
   botAvatarSet                String                       @default("organic")
+  defaultCrossSpaceCommunication Boolean?
   /// Null lets each client keep its previous device preference.
   composerModelPicker          Boolean?
   streamReplies                Boolean?

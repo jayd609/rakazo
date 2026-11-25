@@ -52,6 +52,8 @@ export const accountRpc = {
             avatarStyle: AvatarStyleSchema.optional(),
             /** Restyles every bot not pinned to another set, and is what new bots get. */
             botAvatarSet: BotAvatarSetSchema.optional(),
+            /** Null uses the deployment default. Existing bots are unaffected. */
+            defaultCrossSpaceCommunication: z.boolean().nullable().optional(),
             chatPreferences: AccountChatPreferencesPatchSchema.refine(
               (patch) => Object.values(patch).some((value) => value !== undefined),
               { message: "Nothing to update" },
@@ -66,6 +68,7 @@ export const accountRpc = {
             (input) =>
               input.avatarStyle !== undefined ||
               input.botAvatarSet !== undefined ||
+              input.defaultCrossSpaceCommunication !== undefined ||
               input.chatPreferences !== undefined ||
               input.timezone !== undefined ||
               input.locale !== undefined ||

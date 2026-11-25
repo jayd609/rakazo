@@ -244,6 +244,9 @@ export function accountRoutes(ctx: RouterContext) {
         const data = {
           ...(input.locale === undefined ? {} : { locale: input.locale }),
           ...(botAvatarSet === undefined ? {} : { botAvatarSet }),
+          ...(input.defaultCrossSpaceCommunication === undefined
+            ? {}
+            : { defaultCrossSpaceCommunication: input.defaultCrossSpaceCommunication }),
           ...(labs === undefined ? {} : { labs }),
           ...input.chatPreferences,
         };
@@ -259,7 +262,12 @@ export function accountRoutes(ctx: RouterContext) {
             data,
           });
         }
-        if (input.chatPreferences !== undefined) await preferencesChanged(userId);
+        if (
+          input.chatPreferences !== undefined ||
+          input.defaultCrossSpaceCommunication !== undefined
+        ) {
+          await preferencesChanged(userId);
+        }
         if (botAvatarSet !== undefined) {
           // Every bot of this user not pinned to another set follows the new default, in every
           // space they own bots in, announced like any edit so other devices redraw it.

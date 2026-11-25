@@ -393,3 +393,44 @@ test("desktop notification sound starts off and saves the account choice", async
   await page.reload();
   await expect(sound).toBeChecked();
 });
+
+test("cross-space communication default persists across reloads", async ({ page }, testInfo) => {
+  await signup(
+    page,
+    `cross-space-default-${Date.now()}@rakazo.test`,
+    "password12",
+    "Settings Tester",
+  );
+  await completeOnboarding(page);
+
+  const settings = await openUserSettings(page);
+  const preference = settings.getByTestId("cross-space-default-select");
+
+  await expect(preference).toBeEnabled();
+  await expect(preference).toContainText("Deployment default");
+
+  await preference.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "cross-space-default-inherited");
+
+  for (const choice of ["Disabled", "Enabled", "Deployment default"]) {
+    await chooseOption(preference, choice);
+    await expect(preference).toBeEnabled();
+    await expect(preference).toContainText(choice);
+
+    await page.reload();
+    await expect(preference).toBeEnabled();
+    await expect(preference).toContainText(choice);
+  }
+
+  await chooseOption(preference, "Disabled");
+  await expect(preference).toBeEnabled();
+  await expect(preference).toContainText("Disabled");
+  await preference.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "cross-space-default-disabled");
+
+  await page.setViewportSize({ width: 390, height: 700 });
+  await preference.scrollIntoViewIfNeeded();
+  await expect(preference).toBeVisible();
+  expect(await settings.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await captureScreenshot(page, testInfo, "cross-space-default-narrow");
+});

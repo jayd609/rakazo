@@ -26,6 +26,7 @@ describe("account preferences", () => {
       name: "Test User",
       avatarStyle,
       timezone,
+      defaultCrossSpaceCommunication: null as boolean | null,
       secrets: [],
     };
     const update = vi.fn(async ({ data }: { data: object }) => Object.assign(user, data));
@@ -426,6 +427,60 @@ describe("account preferences", () => {
     await expect(client.me()).resolves.toMatchObject({
       chatPreferences: { composerModelPicker: false },
     });
+  });
+
+  it.each([false, true, null])(
+    "saves cross-space communication default %s for the authenticated account",
+    async (defaultCrossSpaceCommunication) => {
+      const { deps, actor, update, botFindMany } = preferencesDeps("organic");
+      const client = createRouterClient(createRouter(deps), { context: { actor } as never });
+
+      await expect(
+        client.preferences.update({ defaultCrossSpaceCommunication }),
+      ).resolves.toMatchObject({ defaultCrossSpaceCommunication });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: actor.userId },
+        data: { defaultCrossSpaceCommunication },
+      });
+
+      expect(botFindMany).not.toHaveBeenCalled();
+
+      expect(deps.events.publishSpaceChange).toHaveBeenCalledWith(
+        `preferences:${actor.userId}`,
+        "preferences",
+      );
+
+      await expect(client.me()).resolves.toMatchObject({
+        defaultCrossSpaceCommunication,
+      });
+    },
+  );
+
+  it("resets an explicit cross-space default to the deployment default", async () => {
+    const { deps, actor } = preferencesDeps("organic");
+    const client = createRouterClient(createRouter(deps), { context: { actor } as never });
+
+    await client.preferences.update({ defaultCrossSpaceCommunication: false });
+    await expect(client.me()).resolves.toMatchObject({
+      defaultCrossSpaceCommunication: false,
+    });
+
+    await client.preferences.update({ defaultCrossSpaceCommunication: null });
+    await expect(client.me()).resolves.toMatchObject({
+      defaultCrossSpaceCommunication: null,
+    });
+  });
+
+  it("rejects an invalid cross-space communication preference", async () => {
+    const setup = preferencesDeps("organic");
+
+    const response = await updatePreferences(setup, {
+      defaultCrossSpaceCommunication: "disabled",
+    });
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(setup.update).not.toHaveBeenCalled();
   });
 
   it("saves the timezone and the language preference in one write", async () => {

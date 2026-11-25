@@ -137,6 +137,7 @@ export function GeneralSettingsPanels({
   const sidebarDensity = botsSidebarDensityPreference.use();
   const sidebarDensityLabelId = useId();
   const botStyleLabelId = useId();
+  const crossSpaceLabelId = useId();
   const [botStyleError, setBotStyleError] = useState<string | null>(null);
   const streamRepliesId = useId();
   const showToolActivity = toolActivityPreference.use();
@@ -177,6 +178,27 @@ export function GeneralSettingsPanels({
   const meRead = chatPreferencesQuery(queries, queryUserId);
   const { data: me, isLoading: loadingAccount } = useQuery(meRead);
   const chat = useChatPreferences(me?.chatPreferences);
+  const crossSpaceSave = useSave({
+    save: async (value: string, client) => {
+      const defaultCrossSpaceCommunication = value === "default" ? null : value === "enabled";
+      const saved = await client.preferences.update({ defaultCrossSpaceCommunication });
+      queryClient.setQueryData(
+        meRead.queryKey,
+        (current) =>
+          current && {
+            ...current,
+            defaultCrossSpaceCommunication: saved.defaultCrossSpaceCommunication,
+          },
+      );
+    },
+    stale: [meRead.queryKey],
+  });
+  const crossSpaceValue =
+    me?.defaultCrossSpaceCommunication == null
+      ? "default"
+      : me.defaultCrossSpaceCommunication
+        ? "enabled"
+        : "disabled";
   const chatSave = useSave({
     save: async (chatPreferences: AccountChatPreferencesPatch, client) => {
       const saved = await client.preferences.update({ chatPreferences });
@@ -365,6 +387,44 @@ export function GeneralSettingsPanels({
               </div>
             }
           />
+        ) : null}
+        {me?.defaultCrossSpaceCommunication !== undefined ? (
+          <SettingsRow
+            label={
+              <span id={crossSpaceLabelId}>
+                <Trans>Cross-space communication for new bots</Trans>
+              </span>
+            }
+            control={
+              <OptionSelect
+                aria-labelledby={crossSpaceLabelId}
+                data-testid="cross-space-default-select"
+                value={crossSpaceValue}
+                disabled={crossSpaceSave.pending || loadingAccount}
+                options={[
+                  { value: "default", label: t`Deployment default` },
+                  { value: "enabled", label: t`Enabled` },
+                  { value: "disabled", label: t`Disabled` },
+                ]}
+                onValueChange={(value) => {
+                  if (value !== crossSpaceValue) crossSpaceSave.run(value);
+                }}
+                className="w-48 max-w-full"
+              />
+            }
+          >
+            <p className="mt-1 text-body-sm text-muted-foreground">
+              <Trans>
+                Allows new bots to communicate across Spaces through connected messaging apps.
+                Existing bots are unaffected.
+              </Trans>
+            </p>
+            {crossSpaceSave.error ? (
+              <p role="alert" className="mt-2 text-body-sm text-destructive">
+                {t`Could not save`}
+              </p>
+            ) : null}
+          </SettingsRow>
         ) : null}
         <SettingsRow
           label={
